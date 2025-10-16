@@ -1,1 +1,1 @@
-Various shell and perl scripts
+Various scripts
