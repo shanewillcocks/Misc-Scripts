@@ -1,0 +1,46 @@
+# RHEL kickstart file snippet for configuring disks dynaically based on size in GB
+
+%include /tmp/disk_layout
+
+%pre
+# Easy one-liner to find disks by size
+SYSTEM_DISK=$(lsblk --nodeps --noheadings --output NAME,SIZE --paths | grep 50G | awk '{print $1}' | xargs basename)
+BOOT_DISK=$(lsblk --nodeps --noheadings --output NAME,SIZE --paths | grep 2G | awk '{print $1}' | xargs basename)
+
+# Or loop through the disks but assume device names dont change
+#for DISK in sda sdb
+#do
+#  if [ -d /sys/block/$DISK ]; then
+#    SIZE=$(cat /sys/block/$DISK/size)
+#    GBSIZE=$(($SIZE / 2**21))
+#    if [ $GBSIZE -ge 50 ]; then
+#      SYSTEM_DISK=$DISK
+#    elif [ $GBSIZE -eq 2 ]; then
+#      BOOT_DISK=$DISK
+#    fi
+#  fi
+#done
+
+cat <<EOF > /tmp/disk_layout
+# Partition the boot disk
+part biosboot --fstype=biosboot --size=1
+bootloader --location=mbr --append="rhgb quiet crashkernel=1G-4G:192M,4G-64G:256M,64G-:512M audit_backlog_limit=8192 audit=1"
+zerombr
+part /boot --fstype=xfs --ondisk=$BOOT_DISK --size=1024
+part /boot/efi --fstype=efi --ondisk=$BOOT_DISK --size=512
+
+# Create LVM physical volume and volume group
+part pv.01 --fstype="lvmpv" --ondisk=$SYSTEM_DISK --size=1 --grow
+volgroup vg01 --pesize=4096 pv.01
+# Create LVM logical volumes
+logvol / --vgname=vg01 --name=root_vl --fstype=xfs --size=10240
+logvol /tmp --vgname=vg01 --name=tmp_vl --fstype=xfs --size=2048
+logvol /var --vgname=vg01 --name=var_vl --fstype=xfs --size=10240
+logvol /var/tmp --vgname=vg01 --name=var_tmp_vl --fstype=xfs --size=2048
+logvol /var/log --vgname=vg01 --name=var_log_vl --fstype=xfs --size=10240
+logvol /var/log/audit --vgname=vg01 --name=var_audit_vl --fstype=xfs --size=2048
+logvol /opt --vgname=vg01 --name=opt_vl --fstype=xfs --size=6144
+logvol /home --vgname=vg01 --name=home_vl --fstype=xfs --size=4096
+logvol swap --vgname=vg01 --name=swap_vl --fstype=swap --size=4096
+EOF
+%end
