@@ -29,11 +29,11 @@ zerombr
 part /boot --fstype=xfs --ondisk=$BOOT_DISK --size=1024
 part /boot/efi --fstype=efi --ondisk=$BOOT_DISK --size=512
 
+# TBC: This should prevent a Linux partition and create the PV directly on the device
+clearpart --drives=$SYSTEM_DISK --all
 # Create LVM physical volume and volume group
-# Note that using --ondisk creates a Linux partition first, so the PV will actually be created on /dev/sdb1 if SYSTEM_DISK=sdb for example
 part pv.01 --fstype="lvmpv" --ondisk=$SYSTEM_DISK --size=1 --grow
-# TBC: This should skip the Linux partition and create the PV directly on the device
-# part pv.01 --fstype="lvmpv" --ondisk=$SYSTEM_DISK --asprimary --size=1 --grow
+
 volgroup vg01 --pesize=4096 pv.01
 # Create LVM logical volumes
 logvol / --vgname=vg01 --name=root_vl --fstype=xfs --size=10240
